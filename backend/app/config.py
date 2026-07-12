@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "ragsystems_chunks"
-    backend_cors_origins: str = "http://localhost:5173"
+    backend_cors_origins: str = "http://localhost:5173,http://localhost:5174,http://localhost:5175"
     embedding_size: int = 1536
     cross_encoder_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
