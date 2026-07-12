@@ -158,6 +158,76 @@ button:disabled {
   color: #7b5415;
 }
 
+.assistantPanel {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid #cfd8d4;
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.assistantHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.assistantHeader h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.assistantHeader span {
+  color: #245b4f;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.assistantPanel p {
+  margin: 0;
+  color: #3f4246;
+  line-height: 1.45;
+}
+
+.gapList {
+  display: grid;
+  gap: 8px;
+}
+
+.gap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #7b5415;
+  background: #fff9ea;
+  border: 1px solid #ead49d;
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestion {
+  border: 1px solid #b8c9c2;
+  background: #ffffff;
+  color: #245b4f;
+  min-height: 36px;
+  padding: 8px 10px;
+}
+
+.suggestion:hover {
+  background: #eef6f2;
+}
+
 .debugGrid {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.2fr);

@@ -24,6 +24,14 @@ class AnswerService:
                 hits=[],
                 latency_ms=retrieval_latency_ms,
                 insufficient_evidence=True,
+                confidence=0.0,
+                assistant_note="I could not find matching document evidence. Try uploading more source material or asking with more specific names, dates, or terms.",
+                suggested_questions=[
+                    "Which documents should I upload to answer this?",
+                    "What keywords should I search for?",
+                    "Can you summarize the available documents first?",
+                ],
+                evidence_gaps=["No retrieved chunks were available for this question."],
             )
 
         answer = await self._generate(question, hits)
@@ -32,7 +40,18 @@ class AnswerService:
         if insufficient:
             answer = f"{answer}\n\nSome claims could not be fully verified from the retrieved context."
         latency_ms = retrieval_latency_ms + (perf_counter() - started) * 1000
-        return AskResponse(answer=answer, claims=claims, hits=hits, latency_ms=latency_ms, insufficient_evidence=insufficient)
+        confidence = self._confidence(claims, hits)
+        return AskResponse(
+            answer=answer,
+            claims=claims,
+            hits=hits,
+            latency_ms=latency_ms,
+            insufficient_evidence=insufficient,
+            confidence=confidence,
+            assistant_note=self._assistant_note(confidence, insufficient, hits),
+            suggested_questions=self._suggested_questions(question, hits),
+            evidence_gaps=self._evidence_gaps(claims, hits),
+        )
 
     async def _generate(self, question: str, hits: list[RetrievalHit]) -> str:
         context = "\n\n".join(f"[{hit.chunk_id}] {hit.text}" for hit in hits)
@@ -132,3 +151,52 @@ class AnswerService:
                 )
             claims.append(Claim(text=claim_text, citations=citations, supported=any(c.supported for c in citations)))
         return claims
+
+    def _confidence(self, claims: list[Claim], hits: list[RetrievalHit]) -> float:
+        if not claims or not hits:
+            return 0.0
+        supported_ratio = len([claim for claim in claims if claim.supported]) / len(claims)
+        retrieval_strength = min(max(hits[0].combined_score, hits[0].dense_score, hits[0].bm25_score), 1.0)
+        return round((0.7 * supported_ratio) + (0.3 * retrieval_strength), 2)
+
+    def _assistant_note(self, confidence: float, insufficient: bool, hits: list[RetrievalHit]) -> str:
+        if insufficient:
+            return "I found related context, but at least one claim needs stronger support. Use the evidence gaps and retrieval cards before relying on the answer."
+        if confidence >= 0.75:
+            return "The answer is well supported by the retrieved document chunks. You can inspect the cited evidence below."
+        if hits:
+            return "The answer is supported, but confidence is moderate because the retrieved evidence is narrow or weakly scored."
+        return "I could not find enough document evidence to answer confidently."
+
+    def _suggested_questions(self, question: str, hits: list[RetrievalHit]) -> list[str]:
+        if not hits:
+            return [
+                "What documents are currently indexed?",
+                "Which source should I upload next?",
+                "What exact terms should I search for?",
+            ]
+
+        filename = str(hits[0].metadata.get("filename", "this document"))
+        lower_question = question.lower()
+        if lower_question.startswith("who"):
+            return [
+                f"What are the strongest skills mentioned in {filename}?",
+                f"What experience does {filename} describe?",
+                f"Summarize {filename} in bullet points.",
+            ]
+        return [
+            "What evidence supports this answer?",
+            "What is missing from the documents?",
+            "Give me a shorter summary with citations.",
+        ]
+
+    def _evidence_gaps(self, claims: list[Claim], hits: list[RetrievalHit]) -> list[str]:
+        gaps: list[str] = []
+        if not claims:
+            gaps.append("No citation-bearing claims were produced.")
+        unsupported = [claim.text for claim in claims if not claim.supported]
+        if unsupported:
+            gaps.append(f"{len(unsupported)} claim(s) did not pass citation verification.")
+        if hits and max(hit.combined_score for hit in hits) < 0.25:
+            gaps.append("Retrieval scores are low; ask a more specific question or add more source documents.")
+        return gaps

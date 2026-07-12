@@ -63,6 +63,10 @@ class AskResponse(BaseModel):
     hits: list[RetrievalHit]
     latency_ms: float
     insufficient_evidence: bool
+    confidence: float = 0.0
+    assistant_note: str = ""
+    suggested_questions: list[str] = Field(default_factory=list)
+    evidence_gaps: list[str] = Field(default_factory=list)
 
 
 class SearchResponse(BaseModel):

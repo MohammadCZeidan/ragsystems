@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Activity, FileUp, Search, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, FileUp, Search, ShieldCheck, Sparkles } from "lucide-react";
 import "./styles.css";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -30,6 +30,10 @@ type AskResponse = {
   hits: Hit[];
   latency_ms: number;
   insufficient_evidence: boolean;
+  confidence: number;
+  assistant_note: string;
+  suggested_questions: string[];
+  evidence_gaps: string[];
 };
 
 function App() {
@@ -56,16 +60,22 @@ function App() {
     await refreshDocuments();
   }
 
-  async function ask() {
-    if (!question.trim()) return;
+  async function ask(overrideQuestion?: string) {
+    const activeQuestion = overrideQuestion ?? question;
+    if (!activeQuestion.trim()) return;
     setBusy(true);
     const res = await fetch(`${API}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, top_k: 8 }),
+      body: JSON.stringify({ question: activeQuestion, top_k: 8 }),
     });
     setResponse(await res.json());
     setBusy(false);
+  }
+
+  function askSuggested(nextQuestion: string) {
+    setQuestion(nextQuestion);
+    ask(nextQuestion);
   }
 
   return (
@@ -105,7 +115,7 @@ function App() {
           <h2><Search size={18} /> Ask with citations</h2>
           <div className="askRow">
             <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask a question about your indexed documents" />
-            <button onClick={ask} disabled={busy}>{busy ? "Searching..." : "Ask"}</button>
+            <button data-ask-button="true" onClick={() => ask()} disabled={busy}>{busy ? "Searching..." : "Ask"}</button>
           </div>
 
           {response && (
@@ -115,6 +125,30 @@ function App() {
               </div>
               <p>{response.answer}</p>
               <span className="metric">{Math.round(response.latency_ms)} ms total latency</span>
+            </div>
+          )}
+
+          {response && (
+            <div className="assistantPanel">
+              <div className="assistantHeader">
+                <h3><Sparkles size={17} /> AI helper</h3>
+                <span>{Math.round(response.confidence * 100)}% confidence</span>
+              </div>
+              <p>{response.assistant_note}</p>
+              {response.evidence_gaps.length > 0 && (
+                <div className="gapList">
+                  {response.evidence_gaps.map((gap, index) => (
+                    <div className="gap" key={index}><AlertTriangle size={15} /> {gap}</div>
+                  ))}
+                </div>
+              )}
+              <div className="suggestions">
+                {response.suggested_questions.map((suggestion) => (
+                  <button type="button" className="suggestion" key={suggestion} onClick={() => askSuggested(suggestion)}>
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
