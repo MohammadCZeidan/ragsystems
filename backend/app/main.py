@@ -36,6 +36,11 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.on_event("startup")
+async def startup() -> None:
+    await retriever.restore_catalog()
+
+
 @app.post("/documents", response_model=DocumentRecord)
 async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)) -> DocumentRecord:
     suffix = Path(file.filename or "document.txt").suffix.lower()

@@ -53,12 +53,59 @@ class AnswerService:
             )
             return response.choices[0].message.content or ""
 
-        best = hits[0]
-        return f"Based on the indexed documents, the strongest available evidence says: {best.text[:600]} [{best.chunk_id}]"
+        return self._local_answer(question, hits[0])
+
+    def _local_answer(self, question: str, hit: RetrievalHit) -> str:
+        raw_text = hit.text.strip()
+        text = re.sub(r"\s+", " ", raw_text).strip()
+        citation = f"[{hit.chunk_id}]"
+        lower_question = question.lower()
+
+        if lower_question.startswith("who"):
+            name = self._extract_name(raw_text)
+            summary = self._extract_summary(raw_text)
+            if summary:
+                return f"{name} is {summary.rstrip('.')}. {citation}"
+            first_sentence = self._first_supported_sentence(text)
+            return f"{name} is described in the document as follows: {first_sentence}. {citation}"
+
+        first_sentence = self._first_supported_sentence(text)
+        return f"The strongest available evidence says: {first_sentence}. {citation}"
+
+    def _first_supported_sentence(self, text: str) -> str:
+        cleaned = re.sub(r"\s+", " ", text).strip()
+        candidates = re.split(r"(?<=[.!?])\s+|\s+\|\s+", cleaned)
+        for candidate in candidates:
+            candidate = candidate.strip()
+            if 40 <= len(candidate) <= 320:
+                return candidate
+        return cleaned[:280].strip()
+
+    def _extract_name(self, text: str) -> str:
+        ignored_title_words = {"Full", "Stack", "Engineer", "Specialist", "Systems", "AI", "RAG"}
+        for line in text.splitlines():
+            line = re.sub(r"^\[Page \d+\]\s*", "", line).strip()
+            if not line:
+                continue
+            words = re.findall(r"\b[A-Z][a-z]+\b", line)
+            name_words = [word for word in words if word not in ignored_title_words]
+            if len(name_words) >= 2:
+                return " ".join(name_words[:2])
+        return "The person"
+
+    def _extract_summary(self, text: str) -> str | None:
+        match = re.search(r"Summary\s+(.*?)(?:\n\s*Education\b|\n\s*Experience\b|\n\s*Projects\b|$)", text, re.IGNORECASE | re.DOTALL)
+        if not match:
+            return None
+        summary = re.sub(r"\s+", " ", match.group(1)).strip(" |")
+        sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", summary) if part.strip()]
+        if sentences:
+            return " ".join(sentences[:2])
+        return summary[:320].strip()
 
     def _verify_claims(self, answer: str, hits: list[RetrievalHit]) -> list[Claim]:
         hit_map = {hit.chunk_id: hit for hit in hits}
-        sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", answer) if part.strip()]
+        sentences = [part.strip() for part in answer.splitlines() if "[" in part]
         claims: list[Claim] = []
         for sentence in sentences:
             citation_ids = re.findall(r"\[([0-9a-fA-F-]{32,36})\]", sentence)

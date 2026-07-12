@@ -24,11 +24,13 @@ class InMemoryCatalog:
 
     def add_chunks(self, chunks: list[ChunkRecord]) -> None:
         with self._lock:
+            counts_by_document: dict[str, int] = {}
             for chunk in chunks:
                 self._chunks[chunk.id] = chunk
-            if chunks:
-                doc = self._documents[chunks[0].document_id]
-                doc.chunk_count += len(chunks)
+                counts_by_document[chunk.document_id] = counts_by_document.get(chunk.document_id, 0) + 1
+            for document_id, count in counts_by_document.items():
+                doc = self._documents[document_id]
+                doc.chunk_count += count
                 self._documents[doc.id] = doc
 
     def documents(self) -> list[DocumentRecord]:

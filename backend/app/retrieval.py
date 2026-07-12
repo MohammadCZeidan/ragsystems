@@ -10,7 +10,7 @@ from typing import Any
 
 from .config import Settings
 from .embeddings import EmbeddingService
-from .models import ChunkRecord, RetrievalHit, SearchResponse
+from .models import ChunkRecord, DocumentRecord, DocumentStatus, RetrievalHit, SearchResponse
 from .storage import catalog
 
 
@@ -48,6 +48,39 @@ class HybridRetriever:
             for chunk, vector in zip(chunks, vectors, strict=True)
         ]
         await self.qdrant.upsert(collection_name=self.settings.qdrant_collection, points=points)
+        self.rebuild_bm25()
+
+    async def restore_catalog(self) -> None:
+        await self.ensure_collection()
+        chunks: list[ChunkRecord] = []
+        offset = None
+        while True:
+            points, offset = await self.qdrant.scroll(
+                collection_name=self.settings.qdrant_collection,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+            )
+            for point in points:
+                payload = point.payload or {}
+                metadata = dict(payload.get("metadata", {}))
+                document_id = str(payload.get("document_id", ""))
+                text = str(payload.get("text", ""))
+                if not document_id or not text:
+                    continue
+                catalog.upsert_document(
+                    DocumentRecord(
+                        id=document_id,
+                        filename=str(metadata.get("filename", "Restored document")),
+                        content_type=str(metadata.get("content_type", "")),
+                        status=DocumentStatus.ready,
+                        metadata=metadata,
+                    )
+                )
+                chunks.append(ChunkRecord(id=str(point.id), document_id=document_id, text=text, metadata=metadata))
+            if offset is None:
+                break
+        catalog.add_chunks(chunks)
         self.rebuild_bm25()
 
     def rebuild_bm25(self) -> None:
