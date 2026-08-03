@@ -1,0 +1,9 @@
+<svg width="820" height="110" viewBox="0 0 820 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="820" height="110" rx="18" fill="#08111F"/>
+  <rect x="18" y="18" width="784" height="74" rx="14" fill="#102033" stroke="#38BDF8" stroke-width="2"/>
+  <circle cx="52" cy="55" r="7" fill="#38BDF8"/>
+  <circle cx="72" cy="43" r="7" fill="#A7F3D0"/>
+  <circle cx="78" cy="68" r="7" fill="#FDE68A"/>
+  <path d="M58 52l8-5M58 59l14 7M72 50l5 11" stroke="#E0F2FE" stroke-width="3" stroke-linecap="round"/>
+  <text x="110" y="66" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="34" font-weight="800" fill="#F8FAFC">System Design</text>
+</svg>
